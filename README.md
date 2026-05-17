@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🧮 日本の税金シミュレーター（2025年度版）
 
-## Getting Started
+日本の給与所得に対する税金・社会保険料をリアルタイムで試算できるWebアプリです。  
+夏・冬ボーナス対応、奨学金返済・家賃補助を考慮した「可処分所得」まで計算します。
 
-First, run the development server:
+## スクリーンショット
+
+> 入力すると即座に計算結果が更新されます（Calculateボタン不要）
+
+## 機能
+
+- **通常月 / 夏ボーナス月 / 冬ボーナス月** ごとの収支内訳
+- 月収・年収どちらでも入力可能
+- 家賃補助（課税 / 非課税の切り替え）
+- 奨学金返済を差し引いた**可処分所得**の表示
+- 都道府県別の**協会けんぽ健康保険料率**に対応（47都道府県 + 全国平均）
+- 40歳以上の**介護保険料**自動加算
+- 収入の内訳を可視化する**スタック棒グラフ**
+- 月次支出シミュレーター（手取りから生活費を逆算）
+- 各税目・社会保険料の**税金解説コンテンツ**付き
+- ダークモード対応
+
+## 計算内容（2025年度）
+
+| 項目 | 計算方法 |
+|------|---------|
+| 所得税 | 累進課税（5〜45%）× 復興特別所得税 2.1% |
+| 住民税 | 課税所得 × 10% + 均等割 5,000円 |
+| 厚生年金 | 標準報酬月額 × 9.15%（上限 650,000円/月） |
+| 健康保険 | 標準報酬月額 × 都道府県別料率（上限 1,390,000円/月） |
+| 雇用保険 | 月収 × 0.6% |
+| 介護保険 | 標準報酬月額 × 0.8%（40歳以上のみ） |
+| ボーナスの社会保険 | 標準賞与額 × 各料率（厚生年金は夏・冬それぞれ 150万円上限） |
+| 給与所得控除 | 国税庁の速算表に準拠 |
+| 基礎控除 | 所得税 580,000円 / 住民税 530,000円（2025年度改正値） |
+
+> ⚠️ 本ツールは概算計算です。実際の税額は源泉徴収票・確定申告書でご確認ください。  
+> ⚠️ 住民税は前年所得に基づき翌年6月から課税されます。
+
+## 技術スタック
+
+- **Next.js 16** (App Router)
+- **TypeScript**
+- **Tailwind CSS v4**
+
+## ローカルで動かす
 
 ```bash
+# リポジトリをクローン
+git clone https://github.com/OkamotoYuito/tax-simulator.git
+cd tax-simulator
+
+# 依存関係をインストール
+npm install
+
+# 開発サーバーを起動
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いてください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ディレクトリ構成
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+tax-simulator/
+├── app/
+│   ├── layout.tsx          # ルートレイアウト
+│   ├── page.tsx            # メインページ
+│   └── globals.css
+├── components/
+│   ├── InputPanel.tsx      # 入力フォーム
+│   ├── ResultsTable.tsx    # 計算結果テーブル
+│   ├── BarChart.tsx        # 収入配分グラフ
+│   ├── TaxDetailPanel.tsx  # 課税所得の内訳（折りたたみ）
+│   ├── TaxExplanation.tsx  # 税金解説カード
+│   └── BudgetPanel.tsx     # 月次支出シミュレーター
+├── lib/
+│   ├── calculator.ts       # 税金計算ロジック（純粋関数）
+│   └── constants.ts        # 税率・SMRテーブル等の定数
+└── types/
+    └── tax.ts              # 型定義
+```
 
-## Learn More
+## ライセンス
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
