@@ -20,6 +20,8 @@ const DEFAULT_INPUTS: TaxInputs = {
   scholarshipMonthly: 30_000,
   age40plus: false,
   prefecture: "神奈川県",
+  prescribedHoursMonthly: 160,
+  overtimeHoursMonthly: 0,
 };
 
 type Tab = "results" | "budget" | "explanation";

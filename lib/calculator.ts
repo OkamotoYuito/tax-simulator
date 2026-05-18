@@ -107,14 +107,23 @@ export function calculate(inputs: TaxInputs): TaxResult {
     scholarshipMonthly,
     age40plus,
     prefecture,
+    prescribedHoursMonthly,
+    overtimeHoursMonthly,
   } = inputs;
 
   const kenpoRate = KENPO_RATES[prefecture] ?? KENPO_RATES["全国平均"];
 
   const baseSalaryMonthly = inputMode === "monthly" ? incomeInput : Math.floor(incomeInput / 12);
-  const grossMonthlyBase = includeHousingAsIncome
+
+  // 残業代: 時給 × 1.25 × 月平均残業時間
+  const hourlyRate = prescribedHoursMonthly > 0
+    ? Math.floor(baseSalaryMonthly / prescribedHoursMonthly)
+    : 0;
+  const overtimePayMonthly = Math.floor(hourlyRate * 1.25 * (overtimeHoursMonthly ?? 0));
+
+  const grossMonthlyBase = (includeHousingAsIncome
     ? baseSalaryMonthly + housingMonthly
-    : baseSalaryMonthly;
+    : baseSalaryMonthly) + overtimePayMonthly;
 
   const totalBonus = bonusSummer + bonusWinter;
   const grossAnnualSalary = grossMonthlyBase * 12;
@@ -203,6 +212,8 @@ export function calculate(inputs: TaxInputs): TaxResult {
   return {
     grossAnnual,
     grossMonthly: grossMonthlyBase,
+    hourlyRate,
+    overtimePayMonthly,
     socialInsurance,
     employmentIncomeDeduction,
     basicDeductionIncomeTax,

@@ -8,6 +8,8 @@ export interface TaxInputs {
   scholarshipMonthly: number;
   age40plus: boolean;
   prefecture: string;
+  prescribedHoursMonthly: number;
+  overtimeHoursMonthly: number;
 }
 
 export interface BonusSocialInsuranceBreakdown {
@@ -41,6 +43,8 @@ export interface MonthlyBreakdown {
 export interface TaxResult {
   grossAnnual: number;
   grossMonthly: number;
+  hourlyRate: number;
+  overtimePayMonthly: number;
   socialInsurance: SocialInsurance;
   employmentIncomeDeduction: number;
   basicDeductionIncomeTax: number;
