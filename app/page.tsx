@@ -78,6 +78,28 @@ export default function Page() {
   const [inputs, setInputs] = useState<TaxInputs>(DEFAULT_INPUTS);
   const [dark, setDark] = useState(false);
   const [expenses, setExpenses] = useState<ExpenseItem[]>(DEFAULT_EXPENSES);
+  const [pieHeight, setPieHeight] = useState(140);
+  const pieRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+
+  const onPieDragStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const h = pieRef.current?.getBoundingClientRect().height ?? pieHeight;
+    dragRef.current = { startY: e.clientY, startH: h };
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragRef.current) return;
+      const newH = Math.max(80, Math.min(400, dragRef.current.startH + ev.clientY - dragRef.current.startY));
+      setPieHeight(newH);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
 
   useEffect(() => {
     const html = document.documentElement;
@@ -129,6 +151,9 @@ export default function Page() {
     ? (100 - result.effectiveTaxRate).toFixed(1)
     : "—";
 
+  // padding(24) + title(20) + gap(8) = 52
+  const chartSize = Math.max(56, pieHeight - 52);
+
   const budgetBase = result.normalMonth.takeHome - inputs.scholarshipMonthly;
   const budgetTotal = expenses.reduce((s, e) => s + e.amount, 0);
   const budgetRemaining = budgetBase - budgetTotal;
@@ -178,8 +203,12 @@ export default function Page() {
           <div className="flex-1 flex flex-col overflow-hidden">
 
             {/* ── 常時表示: 2つの円グラフ ── */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-              <div className="flex items-stretch gap-2">
+            <div
+              ref={pieRef}
+              className="relative flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700"
+              style={{ height: pieHeight }}
+            >
+              <div className="flex items-stretch gap-2 px-4 py-3 h-full overflow-hidden">
                 {/* 所得内訳グラフ */}
                 <div className="flex-1 min-w-0">
                   <PieChart
@@ -187,6 +216,7 @@ export default function Page() {
                     segments={incomeSegments}
                     centerText={`${takeHomeRate}%`}
                     centerSubtext="手取り率"
+                    size={chartSize}
                   />
                 </div>
 
@@ -199,8 +229,17 @@ export default function Page() {
                     segments={budgetSegments}
                     centerText={budgetBase > 0 ? `${savingsRate.toFixed(0)}%` : undefined}
                     centerSubtext={budgetBase > 0 ? "貯蓄率" : undefined}
+                    size={chartSize}
                   />
                 </div>
+              </div>
+
+              {/* リサイズハンドル */}
+              <div
+                className="absolute bottom-0 left-0 right-0 h-3 cursor-row-resize flex items-center justify-center group z-10"
+                onMouseDown={onPieDragStart}
+              >
+                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600 group-hover:bg-blue-400 dark:group-hover:bg-blue-500 transition-colors" />
               </div>
             </div>
 
