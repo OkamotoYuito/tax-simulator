@@ -89,6 +89,7 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(Math.round(n));
 
 export default function InputPanel({ inputs, onChange }: Props) {
+  const [overtimeOpen, setOvertimeOpen] = useState(false);
   const set = <K extends keyof TaxInputs>(key: K, value: TaxInputs[K]) =>
     onChange({ ...inputs, [key]: value });
 
@@ -137,11 +138,35 @@ export default function InputPanel({ inputs, onChange }: Props) {
         />
       </Field>
 
-      {/* 残業代セクション */}
-      <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20 p-3 space-y-3">
-        <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-          残業代（自動計算）
-        </p>
+      {/* 残業代セクション（折り畳み） */}
+      <div className="rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20 overflow-hidden">
+        {/* ヘッダー（常時表示） */}
+        <button
+          type="button"
+          onClick={() => setOvertimeOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-indigo-100/50 dark:hover:bg-indigo-900/30 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
+              残業代（自動計算）
+            </span>
+            {overtimePayMonthly > 0 && (
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                + {fmt(overtimePayMonthly)}/月
+              </span>
+            )}
+          </div>
+          <svg
+            className={`h-4 w-4 text-indigo-400 transition-transform duration-200 ${overtimeOpen ? "rotate-180" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {/* 展開コンテンツ */}
+        {overtimeOpen && (
+          <div className="px-3 pb-3 space-y-3 border-t border-indigo-200 dark:border-indigo-800 pt-3">
 
         {/* 1日の所定労働時間 */}
         <Field label="1日の所定労働時間">
@@ -232,6 +257,8 @@ export default function InputPanel({ inputs, onChange }: Props) {
         <p className="text-xs text-gray-400 dark:text-gray-500">
           残業代は月収に加算して税・社会保険料を計算します。
         </p>
+          </div>
+        )}
       </div>
 
       {/* 夏ボーナス */}
