@@ -36,9 +36,18 @@ export default function PieChart({ title, segments, centerText, centerSubtext }:
     angle += sweep;
 
     let d: string;
+    let evenodd = false;
     if (sweep >= 2 * Math.PI - 0.002) {
-      d = `M ${cx + outerR} ${cy} A ${outerR} ${outerR} 0 1 1 ${cx + outerR - 0.01} ${cy - 0.01} Z
-           M ${cx + innerR} ${cy} A ${innerR} ${innerR} 0 1 0 ${cx + innerR - 0.01} ${cy - 0.01} Z`;
+      // 全円: 外円と内円を evenodd で重ねてドーナツを作る
+      evenodd = true;
+      d = [
+        `M ${cx + outerR} ${cy}`,
+        `A ${outerR} ${outerR} 0 1 1 ${cx - outerR} ${cy}`,
+        `A ${outerR} ${outerR} 0 1 1 ${cx + outerR} ${cy} Z`,
+        `M ${cx + innerR} ${cy}`,
+        `A ${innerR} ${innerR} 0 1 1 ${cx - innerR} ${cy}`,
+        `A ${innerR} ${innerR} 0 1 1 ${cx + innerR} ${cy} Z`,
+      ].join(" ");
     } else {
       const o1 = polarXY(cx, cy, outerR, sa);
       const o2 = polarXY(cx, cy, outerR, ea);
@@ -47,7 +56,7 @@ export default function PieChart({ title, segments, centerText, centerSubtext }:
       const lg = ea - sa > Math.PI ? 1 : 0;
       d = `M ${o1.x} ${o1.y} A ${outerR} ${outerR} 0 ${lg} 1 ${o2.x} ${o2.y} L ${i1.x} ${i1.y} A ${innerR} ${innerR} 0 ${lg} 0 ${i2.x} ${i2.y} Z`;
     }
-    return { ...seg, d, pct: (seg.value / total) * 100 };
+    return { ...seg, d, evenodd, pct: (seg.value / total) * 100 };
   });
 
   return (
@@ -64,7 +73,13 @@ export default function PieChart({ title, segments, centerText, centerSubtext }:
           <div className="relative flex-shrink-0 w-[100px] h-[100px]">
             <svg viewBox="0 0 200 200" className="w-full h-full">
               {slices.map((s, i) => (
-                <path key={i} d={s.d} fill={s.hex} className="transition-opacity hover:opacity-75" />
+                <path
+                  key={i}
+                  d={s.d}
+                  fill={s.hex}
+                  fillRule={s.evenodd ? "evenodd" : "nonzero"}
+                  className="transition-opacity hover:opacity-75"
+                />
               ))}
               {centerText && (
                 <text
