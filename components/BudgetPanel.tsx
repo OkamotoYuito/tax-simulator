@@ -1,35 +1,37 @@
 "use client";
 
-import { useState } from "react";
 import type { MonthlyBreakdown } from "@/types/tax";
 
-interface Props {
-  normalMonth: MonthlyBreakdown;
-  scholarshipMonthly: number;
-}
-
-interface ExpenseItem {
+export interface ExpenseItem {
   id: string;
   label: string;
   icon: string;
   amount: number;
-  color: string;
+  color: string; // Tailwind bg-* class（棒グラフ用）
+  hex: string;   // hex color（円グラフ用）
 }
 
-const DEFAULT_EXPENSES: ExpenseItem[] = [
-  { id: "rent",       label: "家賃",     icon: "🏠", amount: 0,      color: "bg-blue-400" },
-  { id: "food",       label: "食費",     icon: "🍱", amount: 0,      color: "bg-orange-400" },
-  { id: "utility",    label: "光熱費",   icon: "💡", amount: 0,      color: "bg-yellow-400" },
-  { id: "comm",       label: "通信費",   icon: "📱", amount: 0,      color: "bg-purple-400" },
-  { id: "transport",  label: "交通費",   icon: "🚃", amount: 0,      color: "bg-teal-400" },
-  { id: "health",     label: "医療・美容",icon: "💊", amount: 0,      color: "bg-pink-400" },
-  { id: "insurance",  label: "民間保険", icon: "🛡️", amount: 0,      color: "bg-indigo-400" },
-  { id: "entertain",  label: "娯楽・趣味",icon: "🎮", amount: 0,     color: "bg-rose-400" },
-  { id: "social",     label: "交際費",   icon: "🍻", amount: 0,      color: "bg-amber-400" },
-  { id: "daily",      label: "日用品",   icon: "🛒", amount: 0,      color: "bg-lime-400" },
-  { id: "clothing",   label: "被服費",   icon: "👗", amount: 0,      color: "bg-fuchsia-400" },
-  { id: "other",      label: "その他",   icon: "📦", amount: 0,      color: "bg-gray-400" },
+export const DEFAULT_EXPENSES: ExpenseItem[] = [
+  { id: "rent",      label: "家賃",      icon: "🏠", amount: 0, color: "bg-blue-400",    hex: "#60a5fa" },
+  { id: "food",      label: "食費",      icon: "🍱", amount: 0, color: "bg-orange-400",  hex: "#fb923c" },
+  { id: "utility",   label: "光熱費",    icon: "💡", amount: 0, color: "bg-yellow-400",  hex: "#facc15" },
+  { id: "comm",      label: "通信費",    icon: "📱", amount: 0, color: "bg-purple-400",  hex: "#c084fc" },
+  { id: "transport", label: "交通費",    icon: "🚃", amount: 0, color: "bg-teal-400",    hex: "#2dd4bf" },
+  { id: "health",    label: "医療・美容", icon: "💊", amount: 0, color: "bg-pink-400",    hex: "#f472b6" },
+  { id: "insurance", label: "民間保険",  icon: "🛡️", amount: 0, color: "bg-indigo-400",  hex: "#818cf8" },
+  { id: "entertain", label: "娯楽・趣味", icon: "🎮", amount: 0, color: "bg-rose-400",    hex: "#fb7185" },
+  { id: "social",    label: "交際費",    icon: "🍻", amount: 0, color: "bg-amber-400",   hex: "#fbbf24" },
+  { id: "daily",     label: "日用品",    icon: "🛒", amount: 0, color: "bg-lime-400",    hex: "#a3e635" },
+  { id: "clothing",  label: "被服費",    icon: "👗", amount: 0, color: "bg-fuchsia-400", hex: "#e879f9" },
+  { id: "other",     label: "その他",    icon: "📦", amount: 0, color: "bg-gray-400",    hex: "#9ca3af" },
 ];
+
+interface Props {
+  normalMonth: MonthlyBreakdown;
+  scholarshipMonthly: number;
+  expenses: ExpenseItem[];
+  onExpensesChange: (expenses: ExpenseItem[]) => void;
+}
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(Math.round(n));
@@ -37,16 +39,12 @@ const fmt = (n: number) =>
 const inputClass =
   "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 pl-3 pr-9 py-1.5 text-sm text-right focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 tabular-nums";
 
-export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) {
-  const [expenses, setExpenses] = useState<ExpenseItem[]>(DEFAULT_EXPENSES);
-  const [customLabel, setCustomLabel] = useState("");
-
+export default function BudgetPanel({ normalMonth, scholarshipMonthly, expenses, onExpensesChange }: Props) {
   const setAmount = (id: string, raw: string) => {
     const value = raw === "" ? 0 : parseInt(raw.replace(/[^0-9]/g, ""), 10) || 0;
-    setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, amount: value } : e)));
+    onExpensesChange(expenses.map((e) => (e.id === id ? { ...e, amount: value } : e)));
   };
 
-  // 可処分所得（手取り - 奨学金）を月の出発点とする
   const baseIncome = normalMonth.takeHome - scholarshipMonthly;
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const remaining = baseIncome - totalExpenses;
@@ -114,7 +112,6 @@ export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) 
             収支サマリー
           </h3>
 
-          {/* 収支バー */}
           {baseIncome > 0 && (
             <div className="space-y-1.5">
               <div className="flex h-5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -141,7 +138,6 @@ export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) 
             </div>
           )}
 
-          {/* 数値サマリー */}
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
               <div className="flex justify-between px-3 py-2 text-sm">
@@ -161,12 +157,11 @@ export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) 
             </div>
           </div>
 
-          {/* 支出の内訳レジェンド */}
           {nonZero.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">支出の内訳</p>
               <div className="space-y-1 max-h-48 overflow-y-auto">
-                {nonZero
+                {[...nonZero]
                   .sort((a, b) => b.amount - a.amount)
                   .map((e) => (
                     <div key={e.id} className="flex items-center gap-2 text-xs">
@@ -182,7 +177,6 @@ export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) 
             </div>
           )}
 
-          {/* 赤字警告 */}
           {remaining < 0 && (
             <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2">
               <p className="text-xs text-red-600 dark:text-red-400 font-medium">
@@ -191,7 +185,6 @@ export default function BudgetPanel({ normalMonth, scholarshipMonthly }: Props) 
             </div>
           )}
 
-          {/* 貯蓄率メッセージ */}
           {remaining > 0 && savingsRate >= 20 && (
             <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 px-3 py-2">
               <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">

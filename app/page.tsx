@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import InputPanel from "@/components/InputPanel";
 import ResultsTable from "@/components/ResultsTable";
-import BarChart from "@/components/BarChart";
+import PieChart, { type PieSegment } from "@/components/PieChart";
 import TaxDetailPanel from "@/components/TaxDetailPanel";
 import TaxExplanation from "@/components/TaxExplanation";
-import BudgetPanel from "@/components/BudgetPanel";
+import BudgetPanel, { DEFAULT_EXPENSES, type ExpenseItem } from "@/components/BudgetPanel";
 import { calculate } from "@/lib/calculator";
 import type { TaxInputs } from "@/types/tax";
+import { useEffect, useRef } from "react";
 
 const DEFAULT_INPUTS: TaxInputs = {
   inputMode: "monthly",
@@ -27,18 +28,56 @@ const DEFAULT_INPUTS: TaxInputs = {
   overtimeHoursMonthly: 0,
 };
 
-type Tab = "results" | "budget" | "explanation";
+// 所得内訳の hex カラー（BarChart と統一）
+const INCOME_COLORS = {
+  incomeTax:   "#f43f5e",
+  residentTax: "#f472b6",
+  nenkin:      "#8b5cf6",
+  kenpo:       "#60a5fa",
+  koyo:        "#22d3ee",
+  kaigo:       "#2dd4bf",
+  scholarship: "#fbbf24",
+  disposable:  "#10b981",
+};
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "results",     label: "計算結果" },
-  { id: "budget",      label: "支出管理" },
-  { id: "explanation", label: "税金の解説" },
-];
+interface SectionProps {
+  title: string;
+  defaultOpen?: boolean;
+  badge?: string;
+  children: React.ReactNode;
+}
+
+function CollapsibleSection({ title, defaultOpen = true, badge, children }: SectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{title}</span>
+          {badge && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">{badge}</span>
+          )}
+        </div>
+        <svg
+          className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-4">{children}</div>}
+    </div>
+  );
+}
 
 export default function Page() {
   const [inputs, setInputs] = useState<TaxInputs>(DEFAULT_INPUTS);
-  const [tab, setTab] = useState<Tab>("results");
   const [dark, setDark] = useState(false);
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(DEFAULT_EXPENSES);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -48,37 +87,63 @@ export default function Page() {
 
   const result = useMemo(() => calculate(inputs), [inputs]);
 
+  // 所得内訳の円グラフデータ
+  const incomeSegments = useMemo((): PieSegment[] => {
+    const si = result.socialInsurance;
+    const nenkinAnnual = si.nenkinMonthly * 12 + si.summer.nenkin + si.winter.nenkin;
+    const kenpoAnnual  = si.kenpoMonthly  * 12 + si.summer.kenpo  + si.winter.kenpo;
+    const koyoAnnual   = si.koyoMonthly   * 12;
+    const kaigoAnnual  = si.kaigoMonthly  * 12 + si.summer.kaigo  + si.winter.kaigo;
+
+    return [
+      { label: "所得税",    hex: INCOME_COLORS.incomeTax,   value: result.incomeTaxAnnual },
+      { label: "住民税",    hex: INCOME_COLORS.residentTax,  value: result.residentTaxAnnual },
+      { label: "厚生年金",  hex: INCOME_COLORS.nenkin,       value: nenkinAnnual },
+      { label: "健康保険",  hex: INCOME_COLORS.kenpo,        value: kenpoAnnual },
+      { label: "雇用保険",  hex: INCOME_COLORS.koyo,         value: koyoAnnual },
+      ...(kaigoAnnual > 0 ? [{ label: "介護保険", hex: INCOME_COLORS.kaigo, value: kaigoAnnual }] : []),
+      ...(inputs.scholarshipMonthly > 0
+        ? [{ label: "奨学金返済", hex: INCOME_COLORS.scholarship, value: inputs.scholarshipMonthly * 12 }]
+        : []),
+      { label: "可処分所得", hex: INCOME_COLORS.disposable, value: result.disposableIncomeAnnual },
+    ];
+  }, [result, inputs.scholarshipMonthly]);
+
+  // 支出内訳の円グラフデータ
+  const budgetSegments = useMemo((): PieSegment[] => {
+    const baseIncome = result.normalMonth.takeHome - inputs.scholarshipMonthly;
+    const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+    const remaining = baseIncome - totalExpenses;
+
+    const segs: PieSegment[] = expenses
+      .filter((e) => e.amount > 0)
+      .map((e) => ({ label: e.label, icon: e.icon, hex: e.hex, value: e.amount }));
+
+    if (remaining > 0) {
+      segs.push({ label: "貯蓄・余剰", hex: "#10b981", value: remaining });
+    }
+    return segs;
+  }, [expenses, result.normalMonth, inputs.scholarshipMonthly]);
+
+  const takeHomeRate = result.grossAnnual > 0
+    ? (100 - result.effectiveTaxRate).toFixed(1)
+    : "—";
+
+  const budgetBase = result.normalMonth.takeHome - inputs.scholarshipMonthly;
+  const budgetTotal = expenses.reduce((s, e) => s + e.amount, 0);
+  const budgetRemaining = budgetBase - budgetTotal;
+  const savingsRate = budgetBase > 0 ? Math.max(0, (budgetRemaining / budgetBase) * 100) : 0;
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-gray-950">
       {/* ヘッダー */}
       <header className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-4 h-12 flex items-center gap-3">
           <span className="text-xl">🧮</span>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight truncate">
-              日本の税金シミュレーター
-              <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">2025年度版</span>
-            </h1>
-          </div>
-
-          {/* タブ */}
-          <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                  tab === t.id
-                    ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ダークモードトグル */}
+          <h1 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight truncate flex-1">
+            日本の税金シミュレーター
+            <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">2025年度版</span>
+          </h1>
           <button
             onClick={() => setDark((d) => !d)}
             className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -100,7 +165,8 @@ export default function Page() {
       {/* メインエリア */}
       <main className="flex-1 overflow-hidden">
         <div className="h-full max-w-[1400px] mx-auto flex">
-          {/* 左: 入力パネル（常時表示） */}
+
+          {/* 左: 入力パネル */}
           <aside className="w-72 flex-shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-4">
             <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               収入・控除の入力
@@ -108,51 +174,67 @@ export default function Page() {
             <InputPanel inputs={inputs} onChange={setInputs} />
           </aside>
 
-          {/* 右: タブコンテンツ */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-            {tab === "results" && (
-              <>
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                  <BarChart result={result} scholarshipMonthly={inputs.scholarshipMonthly} />
-                </div>
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                  <ResultsTable result={result} scholarshipMonthly={inputs.scholarshipMonthly} />
-                </div>
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                  <TaxDetailPanel result={result} />
-                </div>
-              </>
-            )}
+          {/* 右: 常時表示エリア＋スクロールエリア */}
+          <div className="flex-1 flex flex-col overflow-hidden">
 
-            {tab === "budget" && (
-              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    月次支出シミュレーター
-                  </h2>
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
-                    通常月（ボーナスなし）の手取りをベースに計算
-                  </span>
+            {/* ── 常時表示: 2つの円グラフ ── */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+              <div className="flex items-stretch gap-2">
+                {/* 所得内訳グラフ */}
+                <div className="flex-1 min-w-0">
+                  <PieChart
+                    title="所得の内訳（年額）"
+                    segments={incomeSegments}
+                    centerText={`${takeHomeRate}%`}
+                    centerSubtext="手取り率"
+                  />
                 </div>
+
+                <div className="w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+
+                {/* 支出内訳グラフ */}
+                <div className="flex-1 min-w-0">
+                  <PieChart
+                    title="支出の内訳（通常月）"
+                    segments={budgetSegments}
+                    centerText={budgetBase > 0 ? `${savingsRate.toFixed(0)}%` : undefined}
+                    centerSubtext={budgetBase > 0 ? "貯蓄率" : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── スクロールエリア: 折り畳みセクション ── */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+
+              <CollapsibleSection
+                title="計算結果"
+                badge={`実効負担率 ${result.effectiveTaxRate.toFixed(1)}%`}
+              >
+                <ResultsTable result={result} scholarshipMonthly={inputs.scholarshipMonthly} />
+              </CollapsibleSection>
+
+              <CollapsibleSection title="支出管理" badge="通常月の手取りをベース">
                 <BudgetPanel
                   normalMonth={result.normalMonth}
                   scholarshipMonthly={inputs.scholarshipMonthly}
+                  expenses={expenses}
+                  onExpensesChange={setExpenses}
                 />
-              </div>
-            )}
+              </CollapsibleSection>
 
-            {tab === "explanation" && (
-              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
-                  各税金・保険料の解説
-                </h2>
+              <CollapsibleSection title="課税所得の内訳" defaultOpen={false}>
+                <TaxDetailPanel result={result} />
+              </CollapsibleSection>
+
+              <CollapsibleSection title="税金の解説" defaultOpen={false}>
                 <TaxExplanation />
-              </div>
-            )}
+              </CollapsibleSection>
 
-            <p className="text-xs text-gray-400 dark:text-gray-500 text-center pb-2">
-              本シミュレーターは概算計算です。実際の税額は源泉徴収票・確定申告書をご確認ください。
-            </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 text-center pb-2">
+                本シミュレーターは概算計算です。実際の税額は源泉徴収票・確定申告書をご確認ください。
+              </p>
+            </div>
           </div>
         </div>
       </main>
