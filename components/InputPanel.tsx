@@ -96,8 +96,11 @@ export default function InputPanel({ inputs, onChange }: Props) {
   const baseSalaryMonthly = inputs.inputMode === "monthly"
     ? inputs.incomeInput
     : Math.floor(inputs.incomeInput / 12);
-  const hourlyRate = inputs.prescribedHoursMonthly > 0
-    ? Math.floor(baseSalaryMonthly / inputs.prescribedHoursMonthly)
+  const dailyHoursDecimal = (inputs.dailyWorkHours ?? 8) + (inputs.dailyWorkMinutes ?? 0) / 60;
+  const annualWorkingDays = Math.max(0, 365 - (inputs.annualHolidays ?? 120) - (inputs.paidLeaveDays ?? 0));
+  const prescribedHoursMonthly = (annualWorkingDays / 12) * dailyHoursDecimal;
+  const hourlyRate = prescribedHoursMonthly > 0
+    ? Math.floor(baseSalaryMonthly / prescribedHoursMonthly)
     : 0;
   const overtimePayMonthly = Math.floor(hourlyRate * 1.25 * (inputs.overtimeHoursMonthly ?? 0));
 
@@ -140,15 +143,55 @@ export default function InputPanel({ inputs, onChange }: Props) {
           残業代（自動計算）
         </p>
 
-        <Field label="所定労働時間（月）" hint="一般的な正社員は約160時間/月（8h × 20日）">
+        {/* 1日の所定労働時間 */}
+        <Field label="1日の所定労働時間">
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <NumericInput
+                value={inputs.dailyWorkHours}
+                onChange={(n) => set("dailyWorkHours", Math.min(24, n))}
+                placeholder="8"
+                unit="時間"
+              />
+            </div>
+            <div className="relative w-28">
+              <select
+                value={inputs.dailyWorkMinutes}
+                onChange={(e) => set("dailyWorkMinutes", Number(e.target.value))}
+                className={inputClass}
+              >
+                {[0, 15, 30, 45].map((m) => (
+                  <option key={m} value={m}>{m}分</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Field>
+
+        {/* 年間休日数 */}
+        <Field
+          label="年間休日数"
+          hint={`土日104日＋祝日${new Date(new Date().getFullYear(), 11, 31).getDay() >= 0 ? 16 : 16}日＝120日が目安`}
+        >
           <NumericInput
-            value={inputs.prescribedHoursMonthly}
-            onChange={(n) => set("prescribedHoursMonthly", n)}
-            placeholder="160"
-            unit="時間"
+            value={inputs.annualHolidays}
+            onChange={(n) => set("annualHolidays", Math.min(365, n))}
+            placeholder="120"
+            unit="日"
           />
         </Field>
 
+        {/* 年間有給取得日数 */}
+        <Field label="年間有給取得日数" hint="取得した日数のみ（繰越・未取得は含めない）">
+          <NumericInput
+            value={inputs.paidLeaveDays}
+            onChange={(n) => set("paidLeaveDays", n)}
+            placeholder="0"
+            unit="日"
+          />
+        </Field>
+
+        {/* 月平均残業時間 */}
         <Field label="月平均残業時間">
           <NumericInput
             value={inputs.overtimeHoursMonthly}
@@ -161,17 +204,25 @@ export default function InputPanel({ inputs, onChange }: Props) {
         {/* 計算結果のプレビュー */}
         <div className="rounded-md bg-white dark:bg-gray-800 border border-indigo-100 dark:border-indigo-900 px-3 py-2 space-y-1">
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>時給（基本給 ÷ 所定時間）</span>
+            <span>年間所定労働日数</span>
             <span className="font-medium text-gray-700 dark:text-gray-300">
-              {inputs.prescribedHoursMonthly > 0 ? fmt(hourlyRate) : "—"}
+              {annualWorkingDays}日
             </span>
           </div>
           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>残業割増率</span>
-            <span className="font-medium text-gray-700 dark:text-gray-300">× 1.25（法定割増）</span>
+            <span>月間所定労働時間</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {prescribedHoursMonthly.toFixed(1)}時間
+            </span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+            <span>時給（基本給 ÷ 月間所定時間）</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              {prescribedHoursMonthly > 0 ? fmt(hourlyRate) : "—"}
+            </span>
           </div>
           <div className="flex justify-between text-xs border-t border-gray-100 dark:border-gray-700 pt-1 mt-1">
-            <span className="font-semibold text-indigo-600 dark:text-indigo-400">残業代（月額）</span>
+            <span className="font-semibold text-indigo-600 dark:text-indigo-400">残業代（月額 × 1.25）</span>
             <span className="font-bold text-indigo-600 dark:text-indigo-400">
               {overtimePayMonthly > 0 ? `+ ${fmt(overtimePayMonthly)}` : fmt(0)}
             </span>

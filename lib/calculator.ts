@@ -107,13 +107,21 @@ export function calculate(inputs: TaxInputs): TaxResult {
     scholarshipMonthly,
     age40plus,
     prefecture,
-    prescribedHoursMonthly,
+    dailyWorkHours,
+    dailyWorkMinutes,
+    annualHolidays,
+    paidLeaveDays,
     overtimeHoursMonthly,
   } = inputs;
 
   const kenpoRate = KENPO_RATES[prefecture] ?? KENPO_RATES["全国平均"];
 
   const baseSalaryMonthly = inputMode === "monthly" ? incomeInput : Math.floor(incomeInput / 12);
+
+  // 月間所定労働時間を休日設定から算出
+  const dailyHoursDecimal = (dailyWorkHours ?? 8) + (dailyWorkMinutes ?? 0) / 60;
+  const annualWorkingDays = Math.max(0, 365 - (annualHolidays ?? 120) - (paidLeaveDays ?? 0));
+  const prescribedHoursMonthly = (annualWorkingDays / 12) * dailyHoursDecimal;
 
   // 残業代: 時給 × 1.25 × 月平均残業時間
   const hourlyRate = prescribedHoursMonthly > 0
@@ -214,6 +222,8 @@ export function calculate(inputs: TaxInputs): TaxResult {
     grossMonthly: grossMonthlyBase,
     hourlyRate,
     overtimePayMonthly,
+    annualWorkingDays,
+    prescribedHoursMonthly,
     socialInsurance,
     employmentIncomeDeduction,
     basicDeductionIncomeTax,

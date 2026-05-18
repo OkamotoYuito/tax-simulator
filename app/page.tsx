@@ -20,7 +20,10 @@ const DEFAULT_INPUTS: TaxInputs = {
   scholarshipMonthly: 30_000,
   age40plus: false,
   prefecture: "神奈川県",
-  prescribedHoursMonthly: 160,
+  dailyWorkHours: 8,
+  dailyWorkMinutes: 0,
+  annualHolidays: 120,
+  paidLeaveDays: 0,
   overtimeHoursMonthly: 0,
 };
 

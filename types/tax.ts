@@ -8,7 +8,11 @@ export interface TaxInputs {
   scholarshipMonthly: number;
   age40plus: boolean;
   prefecture: string;
-  prescribedHoursMonthly: number;
+  // 残業代計算用
+  dailyWorkHours: number;    // 1日の所定労働時間（時）
+  dailyWorkMinutes: number;  // 1日の所定労働時間（分）
+  annualHolidays: number;    // 年間休日数（土日＋祝日＋会社休日）
+  paidLeaveDays: number;     // 年間有給取得日数
   overtimeHoursMonthly: number;
 }
 
@@ -45,6 +49,8 @@ export interface TaxResult {
   grossMonthly: number;
   hourlyRate: number;
   overtimePayMonthly: number;
+  annualWorkingDays: number;
+  prescribedHoursMonthly: number;
   socialInsurance: SocialInsurance;
   employmentIncomeDeduction: number;
   basicDeductionIncomeTax: number;
