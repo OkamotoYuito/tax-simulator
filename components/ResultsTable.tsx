@@ -2,15 +2,10 @@
 
 import type { TaxResult } from "@/types/tax";
 
-interface Props {
-  result: TaxResult;
-  scholarshipMonthly: number;
-}
-
 const fmt = (n: number) =>
   new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(Math.round(n));
 
-type Variant = "default" | "deduction" | "total" | "takehome" | "disposable" | "scholarship";
+type Variant = "default" | "deduction" | "total" | "takehome" | "disposable" | "scholarship" | "overtime";
 
 const textStyles: Record<Variant, string> = {
   default:    "text-gray-700 dark:text-gray-300",
@@ -19,6 +14,7 @@ const textStyles: Record<Variant, string> = {
   takehome:   "text-emerald-700 dark:text-emerald-400 font-bold",
   disposable: "text-blue-700 dark:text-blue-400 font-bold",
   scholarship:"text-orange-600 dark:text-orange-400",
+  overtime:   "text-indigo-600 dark:text-indigo-400",
 };
 const rowBg: Record<Variant, string> = {
   default:    "",
@@ -27,6 +23,7 @@ const rowBg: Record<Variant, string> = {
   takehome:   "bg-emerald-50 dark:bg-emerald-950/30",
   disposable: "bg-blue-50 dark:bg-blue-950/30",
   scholarship:"bg-orange-50/40 dark:bg-orange-950/20",
+  overtime:   "bg-indigo-50/40 dark:bg-indigo-950/20",
 };
 
 interface RowProps {
@@ -70,6 +67,11 @@ function SectionHeader({ label, colSpan }: { label: string; colSpan: number }) {
   );
 }
 
+interface Props {
+  result: TaxResult;
+  scholarshipMonthly: number;
+}
+
 export default function ResultsTable({ result: r, scholarshipMonthly }: Props) {
   const hasSummer = r.summerBonusMonth !== null;
   const hasWinter = r.winterBonusMonth !== null;
@@ -108,6 +110,18 @@ export default function ResultsTable({ result: r, scholarshipMonthly }: Props) {
           </thead>
           <tbody>
             <Row label="総支給額" normal={nm.gross} summer={sm?.gross} winter={wm?.gross} annual={r.grossAnnual} hasSummer={hasSummer} hasWinter={hasWinter} />
+            {r.overtimePayMonthly > 0 && (
+              <Row
+                label="　└ うち残業代（月額）"
+                normal={r.overtimePayMonthly}
+                summer={sm ? r.overtimePayMonthly : undefined}
+                winter={wm ? r.overtimePayMonthly : undefined}
+                annual={r.overtimePayMonthly * 12}
+                variant="overtime"
+                hasSummer={hasSummer}
+                hasWinter={hasWinter}
+              />
+            )}
 
             <SectionHeader label="税金" colSpan={colSpan} />
             <Row label="所得税（概算・復興税込）" normal={nm.incomeTax} summer={sm?.incomeTax} winter={wm?.incomeTax} annual={r.incomeTaxAnnual} variant="deduction" hasSummer={hasSummer} hasWinter={hasWinter} />
